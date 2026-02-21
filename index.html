@@ -1,171 +1,324 @@
 <!DOCTYPE html>
-<html>
+<html lang="hi">
 <head>
-<meta charset="UTF-8">
-<title>Ultimate Car Racing</title>
-<style>
-body{
-  margin:0;
-  background:#111;
-  overflow:hidden;
-  font-family:Arial;
-  color:white;
-  text-align:center;
-}
-canvas{
-  background:#333;
-  display:block;
-  margin:auto;
-}
-#ui{
-  position:absolute;
-  top:10px;
-  left:10px;
-  text-align:left;
-}
-button{
-  padding:8px 15px;
-  margin-top:5px;
-  cursor:pointer;
-}
-#controls{
-  position:absolute;
-  bottom:20px;
-  width:100%;
-}
-.controlBtn{
-  width:80px;
-  height:80px;
-  font-size:30px;
-  margin:10px;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RankWise Online Test - AI से ऑनलाइन टेस्ट</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { font-family: 'Arial', sans-serif; background: #f4f4f4; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
+    .header { background: #fff; border-bottom: 2px solid #ddd; padding: 20px; text-align: center; }
+    .container { max-width: 900px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .section-tab { cursor: pointer; padding: 10px; border: 1px solid #ddd; margin: 5px; border-radius: 5px; }
+    .section-tab.active { background: #007bff; color: white; }
+    .question-card { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+    .option { padding: 10px; border: 1px solid #ddd; margin: 5px 0; cursor: pointer; border-radius: 5px; }
+    .correct { background: #d4edda; }
+    .wrong { background: #f8d7da; }
+    .timer { font-size: 1.2rem; color: #dc3545; }
+    .leaderboard { margin-top: 20px; }
+    footer { margin-top: auto; background: #f8f9fa; padding: 20px; text-align: center; }
+  </style>
 </head>
 <body>
 
-<div id="ui">
-  <div>Score: <span id="score">0</span></div>
-  <div>High Score: <span id="highScore">0</span></div>
-  <div>Lives: <span id="lives">3</span></div>
-  <button onclick="startGame()">Start Game</button>
-</div>
+  <header class="header">
+    <h1>RankWise Online Test</h1>
+    <p>AI से सभी परीक्षाओं के लिए ऑनलाइन टेस्ट — पेपर जैसा फील, नेगेटिव मार्किंग, टाइमर, रिजल्ट एनालिसिस और ज्यादा</p>
+  </header>
 
-<canvas id="gameCanvas" width="400" height="600"></canvas>
+  <div class="container">
+    <div class="row mb-3">
+      <div class="col">
+        <label>मोड चुनें:</label>
+        <select id="mode" class="form-select">
+          <option value="practice">प्रैक्टिस मोड (बिना टाइमर)</option>
+          <option value="test">टेस्ट मोड (टाइमर + नेगेटिव)</option>
+        </select>
+      </div>
+    </div>
 
-<div id="controls">
-  <button class="controlBtn" onclick="moveLeft()">⬅</button>
-  <button class="controlBtn" onclick="activateNitro()">🔥</button>
-  <button class="controlBtn" onclick="moveRight()">➡</button>
-</div>
+    <div class="row mb-3">
+      <div class="col">
+        <label>सेक्शन चुनें:</label>
+        <div class="d-flex flex-wrap">
+          <div class="section-tab" data-section="GS">GS</div>
+          <div class="section-tab" data-section="Reasoning">रीजनिंग</div>
+          <div class="section-tab" data-section="Hindi">हिंदी</div>
+          <div class="section-tab" data-section="Math">मैथ्स</div>
+        </div>
+      </div>
+    </div>
 
-<script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+    <div class="row mb-3">
+      <div class="col">
+        <label>टॉपिक (ऑप्शनल):</label>
+        <input type="text" id="topic" class="form-control" placeholder="जैसे: भारतीय संविधान, प्रतिशत, संधि">
+      </div>
+    </div>
 
-let car, obstacles, score, lives, speed, gameRunning;
-let highScore = localStorage.getItem("highScore") || 0;
-document.getElementById("highScore").innerText = highScore;
+    <div class="row mb-3">
+      <div class="col">
+        <label>कठिनाई स्तर:</label>
+        <select id="level" class="form-select">
+          <option value="आसान">आसान</option>
+          <option value="मध्यम" selected>मध्यम</option>
+          <option value="कठिन">कठिन</option>
+        </select>
+      </div>
+    </div>
 
-function startGame(){
-  car = {x:180,y:500,width:40,height:70};
-  obstacles = [];
-  score = 0;
-  lives = 3;
-  speed = 4;
-  gameRunning = true;
+    <button id="generateTest" class="btn btn-primary w-100">टेस्ट शुरू करें</button>
 
-  document.getElementById("score").innerText = score;
-  document.getElementById("lives").innerText = lives;
+    <div id="timer" class="timer mt-3 text-center" style="display:none;">समय बाकी: <span id="timeLeft">00:00</span></div>
 
-  update();
-  setInterval(createObstacle,1500);
-}
+    <div id="questions" class="mt-4"></div>
 
-function drawCar(){
-  ctx.fillStyle="red";
-  ctx.fillRect(car.x, car.y, car.width, car.height);
-}
+    <button id="submitTest" class="btn btn-success w-100 mt-4" style="display:none;">टेस्ट सबमिट करें</button>
 
-function createObstacle(){
-  if(!gameRunning) return;
-  let x = Math.random()*(canvas.width-40);
-  obstacles.push({x:x,y:-80,width:40,height:70});
-}
+    <div id="result" class="mt-4" style="display:none;"></div>
 
-function drawObstacles(){
-  ctx.fillStyle="yellow";
-  obstacles.forEach(obs=>{
-    ctx.fillRect(obs.x,obs.y,obs.width,obs.height);
-  });
-}
+    <div id="leaderboard" class="leaderboard mt-4" style="display:none;">
+      <h3>लीडरबोर्ड</h3>
+      <ul id="leaderboardList" class="list-group"></ul>
+    </div>
 
-function moveObstacles(){
-  obstacles.forEach(obs=>{
-    obs.y += speed;
+    <button id="downloadPdf" class="btn btn-info w-100 mt-4" style="display:none;">PDF डाउनलोड करें</button>
+  </div>
 
-    if(obs.y > canvas.height){
-      score++;
-      speed += 0.1;
-      document.getElementById("score").innerText = score;
-      obs.y = -80;
-      obs.x = Math.random()*(canvas.width-40);
-    }
+  <footer>
+    <p>Created by Naveen from Nagla Ugrasen, Post Kuchesar, District Bulandshahr, Uttar Pradesh. This is an AI-powered platform for unlimited objective quizzes in Hindi for GS, Reasoning, Hindi, and Math.</p>
+    <p>हम SSC CGL, SSC CHSL, SSC MTS, SSC GD Constable, SSC CPO, Delhi Police Constable, Delhi Police Head Constable, RRB NTPC, RRB Group D, RRB ALP, RRB JE, IBPS PO/Clerk, SBI PO/Clerk, RPF Constable/SI, UPSC CDS/NDA और अन्य प्रमुख सरकारी भर्तियों के लिए प्रैक्टिस क्विज प्रदान करते हैं।</p>
+    <p>For queries, contact: [अपना ईमेल डालें या हटाएं]। © 2026 RankWise India.</p>
+  </footer>
 
-    if(
-      car.x < obs.x + obs.width &&
-      car.x + car.width > obs.x &&
-      car.y < obs.y + obs.height &&
-      car.y + car.height > obs.y
-    ){
-      lives--;
-      document.getElementById("lives").innerText = lives;
-      obs.y = -80;
-      obs.x = Math.random()*(canvas.width-40);
+  <script>
+    let questionsData = [];
+    let currentQuestion = 0;
+    let score = 0;
+    let timerInterval;
+    let timeLeft = 1200; // 20 मिनट (1200 सेकंड)
+    let mode = 'practice';
+    let section = 'GS';
+    let flagged = [];
+    let answers = [];
+    const negativeMark = 0.25;
 
-      if(lives <= 0){
-        endGame();
-      }
-    }
-  });
-}
+    const generateTest = async () => {
+      const generateBtn = document.getElementById('generateTest');
+      const submitBtn = document.getElementById('submitTest');
+      const downloadBtn = document.getElementById('downloadPdf');
+      const resultDiv = document.getElementById('result');
+      const leaderboardDiv = document.getElementById('leaderboard');
+      const questionsDiv = document.getElementById('questions');
+      const timerDiv = document.getElementById('timer');
 
-function update(){
-  if(!gameRunning) return;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawCar();
-  drawObstacles();
-  moveObstacles();
-  requestAnimationFrame(update);
-}
+      generateBtn.disabled = true;
+      questionsDiv.innerHTML = '';
+      resultDiv.style.display = 'none';
+      leaderboardDiv.style.display = 'none';
+      submitBtn.style.display = 'none';
+      downloadBtn.style.display = 'none';
 
-function endGame(){
-  gameRunning = false;
-  if(score > highScore){
-    localStorage.setItem("highScore",score);
+      mode = document.getElementById('mode').value;
+      section = document.querySelector('.section-tab.active') ? document.querySelector('.section-tab.active').dataset.section : 'GS';
+      const topic = document.getElementById('topic').value.trim() || 'सामान्य';
+      const level = document.getElementById('level').value;
+
+      const apiKey = prompt("Gemini API Key डालें (https://aistudio.google.com/app/apikey से कॉपी करके)");  
+      if (!apiKey) return;
+
+      const prompt = `
+तुम एक प्रोफेशनल हिंदी एग्जाम क्वेश्चन मेकर हो।
+विषय: ${section}
+टॉपिक: ${topic}
+स्तर: ${level}
+
+ठीक 10 MCQ प्रश्न बनाओ, केवल हिंदी में।
+आउटपुट सिर्फ JSON ऐरे में दो, कुछ और मत लिखना:
+[
+  {
+    "question": "प्रश्न टेक्स्ट",
+    "options": ["A) ऑप्शन1", "B) ऑप्शन2", "C) ऑप्शन3", "D) ऑप्शन4"],
+    "correct": "A",
+    "explanation": "स्पष्टीकरण 2-4 लाइन में"
   }
-  alert("Game Over! Score: "+score);
-  location.reload();
-}
+]
+      `;
 
-function moveLeft(){
-  if(car.x > 0) car.x -= 30;
-}
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+            })
+          }
+        );
 
-function moveRight(){
-  if(car.x < canvas.width - car.width) car.x += 30;
-}
+        if (!response.ok) throw new Error('API एरर');
 
-document.addEventListener("keydown",function(e){
-  if(e.key==="ArrowLeft") moveLeft();
-  if(e.key==="ArrowRight") moveRight();
-  if(e.key===" ") activateNitro();
-});
+        const data = await response.json();
+        const text = data.candidates[0].content.parts[0].text;
+        questionsData = JSON.parse(text.match(/\[[\s\S]*\]/)[0]);
 
-function activateNitro(){
-  speed += 5;
-  setTimeout(()=>{ speed -= 5; },2000);
-}
-</script>
+        // रैंडम ऑर्डर
+        questionsData = questionsData.sort(() => Math.random() - 0.5);
 
+        currentQuestion = 0;
+        score = 0;
+        flagged = [];
+        answers = Array(questionsData.length).fill(null);
+
+        if (mode === 'test') {
+          timeLeft = 1200;
+          timerDiv.style.display = 'block';
+          timerInterval = setInterval(updateTimer, 1000);
+        } else {
+          timerDiv.style.display = 'none';
+        }
+
+        showQuestion();
+
+        submitBtn.style.display = 'block';
+
+      } catch (error) {
+        questionsDiv.innerHTML = '<div class="alert alert-danger">एरर: ' + error.message + '</div>';
+      }
+
+      generateBtn.disabled = false;
+    };
+
+    const showQuestion = () => {
+      const questionsDiv = document.getElementById('questions');
+      questionsDiv.innerHTML = '';
+
+      const q = questionsData[currentQuestion];
+
+      const card = document.createElement('div');
+      card.className = 'question-card';
+      card.innerHTML = `
+        <h5>प्रश्न ${currentQuestion + 1}: ${q.question}</h5>
+        ${q.options.map((opt, j) => `
+          <div class="option" onclick="selectOption(\( {j})" id="opt \){j}">
+            ${opt}
+          </div>
+        `).join('')}
+        <div class="explanation" id="exp" style="display: none;">${q.explanation}</div>
+      `;
+
+      questionsDiv.appendChild(card);
+
+      if (answers[currentQuestion] !== null) {
+        const selected = document.getElementById('opt' + answers[currentQuestion]);
+        selected.classList.add(answers[currentQuestion] === q.options.findIndex(o => o.charAt(0) === q.correct) ? 'correct' : 'wrong');
+        document.getElementById('exp').style.display = mode === 'practice' ? 'block' : 'none';
+      }
+
+      const nav = document.createElement('div');
+      nav.className = 'd-flex justify-content-between mt-3';
+      nav.innerHTML = `
+        <button class="btn btn-secondary" onclick="previousQuestion()" ${currentQuestion === 0 ? 'disabled' : ''}>पिछला</button>
+        <button class="btn btn-warning" onclick="flagQuestion()">फ्लैग</button>
+        <button class="btn btn-secondary" onclick="nextQuestion()" ${currentQuestion === questionsData.length - 1 ? 'disabled' : ''}>अगला</button>
+      `;
+      questionsDiv.appendChild(nav);
+    };
+
+    const selectOption = (j) => {
+      answers[currentQuestion] = j;
+
+      const q = questionsData[currentQuestion];
+      const correctIndex = q.options.findIndex(o => o.charAt(0) === q.correct);
+
+      document.querySelectorAll('.option').forEach((opt, i) => opt.classList.remove('correct', 'wrong'));
+      document.getElementById('opt' + j).classList.add(j === correctIndex ? 'correct' : 'wrong');
+      document.getElementById('opt' + correctIndex).classList.add('correct');
+
+      if (mode === 'practice') {
+        document.getElementById('exp').style.display = 'block';
+      }
+    };
+
+    const previousQuestion = () => {
+      if (currentQuestion > 0) currentQuestion--;
+      showQuestion();
+    };
+
+    const nextQuestion = () => {
+      if (currentQuestion < questionsData.length - 1) currentQuestion++;
+      showQuestion();
+    };
+
+    const flagQuestion = () => {
+      if (!flagged.includes(currentQuestion)) flagged.push(currentQuestion);
+      alert('प्रश्न फ्लैग हो गया');
+    };
+
+    const updateTimer = () => {
+      timeLeft--;
+      document.getElementById('timeLeft').innerHTML = new Date(timeLeft * 1000).toISOString().substr(11, 8);
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        submitTest();
+      }
+    };
+
+    const submitTest = () => {
+      clearInterval(timerInterval);
+
+      questionsData.forEach((q, i) => {
+        const correctIndex = q.options.findIndex(o => o.charAt(0) === q.correct);
+        if (answers[i] === correctIndex) {
+          score++;
+        } else if (answers[i] !== null && mode === 'test') {
+          score -= negativeMark;
+        }
+      });
+
+      const result = document.getElementById('result');
+      result.innerHTML = `
+        स्कोर: ${score} / ${questionsData.length}  
+        प्रतिशत: ${((score / questionsData.length) * 100).toFixed(2)}%  
+        सही: ${answers.filter((a, i) => a === questionsData[i].options.findIndex(o => o.charAt(0) === questionsData[i].correct)).length}  
+        गलत: ${answers.filter((a, i) => a !== null && a !== questionsData[i].options.findIndex(o => o.charAt(0) === questionsData[i].correct)).length}  
+        स्किप्ड: ${answers.filter(a => a === null).length}  
+        percentile (मॉक): 85% (मॉक डेटा)
+      `;
+      result.style.display = 'block';
+
+      const leaderboardList = document.getElementById('leaderboardList');
+      const leaderEntry = document.createElement('li');
+      leaderEntry.className = 'list-group-item';
+      leaderEntry.innerHTML = `नाम: यूजर1, स्कोर: ${score}`;
+      leaderboardList.appendChild(leaderEntry);
+      document.getElementById('leaderboard').style.display = 'block';
+
+      document.getElementById('downloadPdf').style.display = 'block';
+    };
+
+    const downloadPdf = () => {
+      const pdfContent = questionsData.map((q, i) => `प्रश्न ${i+1}: ${q.question}\nविकल्प: ${q.options.join('\n')}\nसही: ${q.correct}\nस्पष्टीकरण: ${q.explanation}`).join('\n\n');
+      const blob = new Blob([pdfContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'rankwise-test.pdf';
+      a.click();
+    };
+
+    document.getElementById('generateTest').addEventListener('click', generateTest);
+    document.getElementById('submitTest').addEventListener('click', submitTest);
+    document.getElementById('downloadPdf').addEventListener('click', downloadPdf);
+
+    document.querySelectorAll('.section-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+  </script>
 </body>
 </html>
